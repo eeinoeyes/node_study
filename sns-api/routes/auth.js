@@ -3,9 +3,12 @@ const passport = require('passport')
 const bcrypt = require('bcrypt')
 const router = express.Router()
 const User = require('../models/user')
+const { isLoggedIn, isNotLoggedIn } = require('./middlewares')
 
 // 회원가입 기능 구현 : localhost:8000/auth
-router.post('/join', async (req, res, next) => {
+router.post('/join', isNotLoggedIn, async (req, res, next) => {
+   // isNotLoggedin = 로그인 안 된 상태인지 확인하는 미들웨어
+   // 로그인이 안 된 상태일 때만 회원가입이 진행되도록 제어
    try {
       const { email, nick, password } = req.body
       /*
@@ -59,7 +62,8 @@ router.post('/join', async (req, res, next) => {
 
 // 로그인: localhost:8000/auth/login
 // 얘만 post고 밑으로는 다 get!
-router.post('/login', async (req, res, next) => {
+router.post('/login', isNotLoggedIn, async (req, res, next) => {
+   // isNotLoggedIn 사용해서 로그인이 안 된 상태일 때만 로그인이 가능하도록 제어
    /* 
    authenticate : localStrategy.js에 작성한 인증 과정을 실행시킴
                   그 과정에서 에러 발생시 authError객체에 값을 부여하고,
@@ -105,7 +109,8 @@ router.post('/login', async (req, res, next) => {
 })
 
 // 로그아웃: localhost:8000/auth/logout
-router.get('/logout', async (req, res, next) => {
+router.get('/logout', isLoggedIn, async (req, res, next) => {
+   //isLoggedIn을 사용해 로그인 된 상태일 때만 로그아웃이 가능하도록 제어
    req.logOut((logoutError) => {
       if (logoutError) {
          // 로그아웃으로 상태 변경 도중 에러 발생시
