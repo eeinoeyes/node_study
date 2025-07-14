@@ -62,48 +62,43 @@ router.post('/join', isNotLoggedIn, async (req, res, next) => {
 
 // 로그인: localhost:8000/auth/login
 // 얘만 post고 밑으로는 다 get!
+// 로그인이 안된 상태일때만 로그인을 하도록 한다
 router.post('/login', isNotLoggedIn, async (req, res, next) => {
-   // isNotLoggedIn 사용해서 로그인이 안 된 상태일 때만 로그인이 가능하도록 제어
-   /* 
-   authenticate : localStrategy.js에 작성한 인증 과정을 실행시킴
-                  그 과정에서 에러 발생시 authError객체에 값을 부여하고,
-                  인증 성공시 user 파라미터에는 passport에서 넘겨받은 exUser값 저장
-   */
+   // authenticate 함수는 localStrategy.js 에 작성한 인증과정을 실행한다. 그 과정에서 에러발생시 authError 객체에 값을 주고, 인증과정 성공시 user에는 인증과정에서 passport에 넘겨줬던 exUser값이 들어있다.
    passport.authenticate('local', (authError, user, info) => {
       if (authError) {
          // 로그인 인증 중 에러 발생시
          authError.status = 500
          authError.message = '인증 중 오류 발생'
-         return next(authError) // 에러 미들웨어로 이동
+         return next(authError) // 에러 미들웨어로 전달
       }
+
       if (!user) {
-         //비밀번호 불일치 or 사용자 없을 경우 info.message에 메시지 전달
-         /*
-         info 값으로는 localStrategy에서 done에서 null, false와 함께 보낸 message 객체가 들어있음
-         */
+         // 비밀번호 불일치 or 사용자가 없을 경우 info.message를 사용해서 메세지 전달
+         // 401: unauthorized, 로그인 과정에서 인증이 안된경우 사용
          const error = new Error(info.message || '로그인 실패')
          error.status = 401 // Unauthorized
-         return next(error)
+         return next(error) // 에러 미들웨어로 전달
       }
 
       // 인증이 정상적으로 되고 사용자를 로그인 상태로 바꿈
       req.login(user, (loginError) => {
-         // 로그인 과정 중 에러 발생(loginError)시
          if (loginError) {
+            // 로그인 상태로 바꾸는 중 오류 발생시
             loginError.status = 500
             loginError.message = '로그인 중 오류 발생'
             return next(loginError)
          }
-      })
 
-      // 로그인 성공시 user객체와 함께 response
-      res.status(200).json({
-         success: true,
-         message: '로그인 성공',
-         user: {
-            id: user.id,
-            nick: user.nick,
-         },
+         // 로그인 성공시 user객체와 함께 response
+         res.status(200).json({
+            success: true,
+            message: '로그인 성공',
+            user: {
+               id: user.id,
+               nick: user.nick,
+            },
+         })
       })
    })(req, res, next)
 })
@@ -131,6 +126,8 @@ router.get('/logout', isLoggedIn, async (req, res, next) => {
 // 현재 로그인 상태 확인: localhost:8000/auth/status
 router.get('/status', async (req, res, next) => {
    try {
+      console.log(req.isAuthenticated())
+
       if (req.isAuthenticated()) {
          // isAuthenticated: 인증 여부 확인. true일시 로그인 상태, false일시 로그아웃 상태
          res.status(200).json({

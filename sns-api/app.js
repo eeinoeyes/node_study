@@ -18,8 +18,8 @@ const { sequelize } = require('./models') // = ./models/index.js
 const passportConfig = require('./passport')
 
 const app = express()
-app.set('port', process.env.PORT || 8002)
 passportConfig()
+app.set('port', process.env.PORT || 8002)
 
 // 시퀄라이즈를 사용한 DB연결
 sequelize

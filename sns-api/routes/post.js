@@ -60,17 +60,16 @@ router.post('/', isLoggedIn, upload.single('img'), async (req, res, next) => {
       // 위 정규표현식으로 추출한 결과값: ['#여행', '#맛집'] <- 배열 형태!
       if (hashtags) {
          //추출된 해시태그가 있다면
-         const result = await Promise.all(
-            hashtags.map((tag) => {
-               Hashtag.findOrCreate({ where: { title: tag.slice(1) } }) // #을 제외한 문자만
-               /*
-               findOrCreate = where절에서 찾는 값이 존재하는지 확인하고 없다면 Create(생성)
-               해당 코드에서는 map()함수 안에서 비동기적으로 여러번 실행되는 구조
+         /*
+         findOrCreate = where절에서 찾는 값이 존재하는지 확인하고 없다면 Create(생성)
+         해당 코드에서는 map()함수 안에서 비동기적으로 여러번 실행되는 구조
 
-               Promise.all 처리하면 findOrCreate()함수는 비동기+병렬 처리(동시작업)되므로 작업 속도가 빨라짐
-               *주의사항!!* Promise.all 과정에 포함된 함수 중 하나라도 작업에 실패할 시 전체가 rejected됨
-               */
-            })
+         Promise.all 처리하면 findOrCreate()함수는 비동기+병렬 처리(동시작업)되므로 작업 속도가 빨라짐
+         *주의사항!!* Promise.all 과정에 포함된 함수 중 하나라도 작업에 실패할 시 전체가 rejected됨
+         */
+
+         const result = await Promise.all(
+            hashtags.map((tag) => Hashtag.findOrCreate({ where: { title: tag.slice(1) } })) //#을 제외한 문자만
          )
          //postHashtag 테이블에 insert
          /*
@@ -93,7 +92,12 @@ router.post('/', isLoggedIn, upload.single('img'), async (req, res, next) => {
           */
 
          //연관메서드 addHashtags(): HashTagInstance 값을 이용해 hashtag 객체를 insert => 이 과정에서 postHashtag 테이블의 post_id와 hashtag_id 컬럼에 값이 자동으로 insert
-         await post.addHashtags(result.map((r) => r[0]))
+         await post.addHashtags(
+            result.map((r) => {
+               console.log(r)
+               return r[0]
+            })
+         )
       }
       res.status(200).json({
          success: true,
