@@ -17,19 +17,25 @@ try {
 
 // 이미지 업로드를 위한 multer 설정
 const upload = multer({
-   Storage: multer.diskStorage({
+   // 저장할 위치와 파일명 지정
+   storage: multer.diskStorage({
       destination(req, file, cb) {
-         cb(null, 'uploads/') // uploads 폴더에 파일 저장(경로 설정)
+         cb(null, 'uploads/') // uploads 폴더에 파일 저장
       },
       filename(req, file, cb) {
+         // 제주도.jpg
          const decodeFileName = decodeURIComponent(file.originalname) // 파일명 디코딩(한글 파일명 깨짐 방지)
-         const ext = path.extname(decodeFileName) // 확장자 추출
-         const basename = path.basename(decodeFileName, ext) // 원본 파일 이름과 확장자 분리, 파일명만 추출
+         const ext = path.extname(decodeFileName) // 확장자 추출 -> .jpg
+         const basename = path.basename(decodeFileName, ext) // 확장자 제거한 파일명 추출 -> 제주도
 
+         // 파일명: 기존이름 + 업로드 날짜시간 + 확장자
+         // 제주도.jpg
+         // 제주도 + 1211242432 + .jpg
+         // 제주도1211242432.jpg
          cb(null, basename + Date.now() + ext)
       },
    }),
-   limits: { fileSize: 5 * 1024 * 1024 }, // SMB 파일 크기 제한
+   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB 파일크기 제한
 })
 
 // 게시물 등록
@@ -69,7 +75,11 @@ router.post('/', isLoggedIn, upload.single('img'), async (req, res, next) => {
          */
 
          const result = await Promise.all(
-            hashtags.map((tag) => Hashtag.findOrCreate({ where: { title: tag.slice(1) } })) //#을 제외한 문자만
+            hashtags.map((tag) =>
+               Hashtag.findOrCreate({
+                  where: { title: tag.slice(1) }, //#을 제외한 문자만
+               })
+            )
          )
          //postHashtag 테이블에 insert
          /*
@@ -99,6 +109,7 @@ router.post('/', isLoggedIn, upload.single('img'), async (req, res, next) => {
             })
          )
       }
+
       res.status(200).json({
          success: true,
          message: '게시물이 성공적으로 등록됐습니다.',
@@ -149,6 +160,40 @@ router.get('/:id', async (req, res, next) => {
 //전체 게시물 불러오기 (페이징 기능 포함) localhost:8000/post?page=1&limit=3
 router.get('/:id', async (req, res, next) => {
    try {
+      const page = parseInt(req.query.page, 10) || 1 // 쿼리스트링의 page(페이지 번호)를 호출, 기본값 1
+      const limit = parseInt(req.query.limit, 10) || 3 // 쿼리스트링의 limit(게시글 노출 수) 호출, 기본값 3
+      // parseInt (값, 10) -> 10진수로 변환한 값을 반환. 쿼리스트링은 문자열이라서 parseInt로 십진수 숫자값으로 변환해주는거임
+      const offset = (page - 1) * limit //오프셋 계산
+      /*
+      오프셋offset이란?
+      페이징 기능 구현할 때 반드시 필요함! 오프셋 계산식은 고정이니까 그냥 외우기
+      계산한 오프셋값의 개수만큼 데이터를 생략하고 오프셋+1 번째 데이터부터 보여줌
+      */
+
+      // 1. 게시물 레코드의 전체 갯수 카운팅
+      // select count(*) from posts
+      const count = await Post.count()
+
+      // 2. 게시물 레코드 직접 호출
+      const posts = await Post.findAll({
+         limit,
+         offset,
+         order: [['createdAt', 'DESC']], // 포스트 등록일을 기준으로 DESC(내림차순) 정렬 (최근날짜순으로 가져오기 위해서)
+         // page:1, limit:3, offset:1 => select * from posts order by createdAt desc limit 3 offset 0
+         // page:2, limit:3, offset:3 => select * from posts order by createdAt desc limit 3 offset 3
+
+         //게시글 작성한 사람과 게시글에 포함된 해시태그를 함께 가져온다
+         include: [
+            {
+               model: User,
+               attributes: ['id', 'nick', 'email'], // User모델의 id, nick, email값
+            },
+            {
+               model: Hashtag,
+               attributes: ['title'], // Hashtag 모델의 title값 호출
+            },
+         ],
+      })
    } catch (error) {
       error.status = 500
       error.message = '게시물을 불러오는 중 오류가 발생했습니다.'
